@@ -113,6 +113,12 @@ if __name__ == "__main__":
     #### Initialize the controller #############################
     ctrl = DSLPIDControl(drone_model=DroneModel.CF2X)
 
+    if ARGS.visualize_box:
+        p.addUserDebugLine([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
+        p.addUserDebugLine([BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
+        p.addUserDebugLine([BOX_SIDE/2, BOX_SIDE/2,TABLE_HEIGHT], [-BOX_SIDE/2, BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
+        p.addUserDebugLine([-BOX_SIDE/2, BOX_SIDE/2,TABLE_HEIGHT], [-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
+
     #### Run the simulation ####################################
     CTRL_EVERY_N_STEPS = int(np.floor(env.SIM_FREQ/ARGS.control_freq_hz))
     action = {"0": np.array([0,0,0,0])}
@@ -179,7 +185,6 @@ if __name__ == "__main__":
         #### Visualize the box #####################################
         if ARGS.visualize_box:
             p.addUserDebugLine(uav_pos_old, uav_pos, [0,1,0])
-            p.addUserDebugLine(TARGET_POS_OLD, TARGET_POS, [0,0,1])
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:
