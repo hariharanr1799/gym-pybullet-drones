@@ -63,10 +63,11 @@ if __name__ == "__main__":
     parser.add_argument('--simulation_freq_hz', default=250,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
     parser.add_argument('--control_freq_hz',    default=250,        type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--duration_sec',       default=25,          type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
+    parser.add_argument('--visualize_box',       default=True,          type=str2bool,           help='Visualize the boxes (default: True)', metavar='')
     ARGS = parser.parse_args()
 
     #### Box parameters ########################################
-    BOX_SIDE = 0.4 # m
+    BOX_SIDE = 0.2 # m
     TIME_SIDE = 5 #s
     
     #### Initialize the simulation #############################
@@ -119,11 +120,18 @@ if __name__ == "__main__":
     ctrl_counter = 0
     line_counter = 0
     corner_ind = 0
+    
+    uav_pos = INIT_XYZ.reshape(3,)
+    TARGET_POS = INIT_XYZ.reshape(3,)
+
     for i in range(0, int(ARGS.duration_sec*env.SIM_FREQ), AGGR_PHY_STEPS):
+
+        #### Update old desired and actual position ###############
+        uav_pos_old = uav_pos
+        TARGET_POS_OLD = TARGET_POS
 
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
-
         uav_pos = obs["0"]["state"][0:3]
         SPEED = (BOX_SIDE/TIME_SIDE)/ARGS.control_freq_hz
 
@@ -165,7 +173,13 @@ if __name__ == "__main__":
                 corner_ind = ctrl_counter
                 line_counter = 4
         else:
-            TARGET_POS = np.array([0,0,TABLE_HEIGHT])
+            ARGS.visualize_box = False
+            TARGET_POS = np.array([0,0,TABLE_HEIGHT+0.1])
+        
+        #### Visualize the box #####################################
+        if ARGS.visualize_box:
+            p.addUserDebugLine(uav_pos_old, uav_pos, [0,1,0])
+            p.addUserDebugLine(TARGET_POS_OLD, TARGET_POS, [0,0,1])
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:
