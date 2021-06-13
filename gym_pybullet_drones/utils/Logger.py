@@ -134,7 +134,7 @@ class Logger(object):
             Added to the foldername.
 
         """
-        csv_dir = os.environ.get('HOME')+"/Desktop/save-flight-"+comment+"-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
+        csv_dir = os.path.dirname(os.path.abspath(__file__))+"/../../files/csv_logs/save-flight-"+comment+"-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
         if not os.path.exists(csv_dir):
             os.makedirs(csv_dir+'/')
         t = np.arange(0, self.timestamps.shape[1]/self.LOGGING_FREQ_HZ, 1/self.LOGGING_FREQ_HZ)

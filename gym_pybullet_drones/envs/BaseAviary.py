@@ -235,6 +235,10 @@ class BaseAviary(gym.Env):
             self.INIT_RPYS = initial_rpys
         else:
             print("[ERROR] invalid initial_rpys in BaseAviary.__init__(), try initial_rpys.reshape(NUM_DRONES,3)")
+
+        #### Set Contact data variable #############################
+        self.contactData = []
+        
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
@@ -370,6 +374,12 @@ class BaseAviary(gym.Env):
                 p.stepSimulation(physicsClientId=self.CLIENT)
             #### Save the last applied action (e.g. to compute drag) ###
             self.last_clipped_action = clipped_action
+            #### Save the contact data #############################
+            contact_data = p.getContactPoints(bodyA=1)
+            if len(contact_data) == 0:
+                self.contactData.append([])
+            else:
+                self.contactData.append(list(contact_data[0]))
         #### Update and store the drones kinematic information #####
         self._updateAndStoreKinematicInformation()
         #### Prepare the return values #############################
@@ -381,6 +391,11 @@ class BaseAviary(gym.Env):
         self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
         return obs, reward, done, info
     
+    ################################################################################
+
+    def _getContactData(self):
+        return self.contactData
+
     ################################################################################
     
     def render(self,
@@ -971,7 +986,7 @@ class BaseAviary(gym.Env):
                    physicsClientId=self.CLIENT
                    )
         p.loadURDF("cube_no_rotation.urdf",
-                   [-.5, -2.5, .5],
+                   [0, 0, 0.5],
                    p.getQuaternionFromEuler([0, 0, 0]),
                    physicsClientId=self.CLIENT
                    )
