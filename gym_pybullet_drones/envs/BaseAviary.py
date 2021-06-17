@@ -16,7 +16,7 @@ import gym
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
-    CF2X = "cf2x"   # Bitcraze Craziflie 2.0 in the X configuration
+    CF2X = "hexcopter"   # Bitcraze Craziflie 2.0 in the X configuration
     CF2P = "cf2p"   # Bitcraze Craziflie 2.0 in the + configuration
     HB = "hb"       # Generic quadrotor (with AscTec Hummingbird inertial properties)
 
@@ -119,6 +119,7 @@ class BaseAviary(gym.Env):
         self.OBSTACLES = obstacles
         self.USER_DEBUG = user_debug_gui
         self.URDF = self.DRONE_MODEL.value + ".urdf"
+        print(self.URDF)
         #### Load the drone properties from the .urdf file #########
         self.M, \
         self.L, \

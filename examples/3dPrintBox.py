@@ -139,45 +139,58 @@ if __name__ == "__main__":
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
         uav_pos = obs["0"]["state"][0:3]
-        SPEED = (BOX_SIDE/TIME_SIDE)/ARGS.control_freq_hz
+        MAX_SPEED = (BOX_SIDE/TIME_SIDE)/ARGS.control_freq_hz
 
         #### Compute desired position ##############################       
         if line_counter == 0:
             BOX_CORNER = np.array([BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT])
-            if (uav_pos-BOX_CORNER)[0] < 0:
+            e = (uav_pos-BOX_CORNER)[0]
+            # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            SPEED = MAX_SPEED
+            print("========>>", MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            if e < 0:
                 TARGET_POS = INIT_XYZ[0, 0] + SPEED*(ctrl_counter-corner_ind), INIT_XYZ[0, 1], INIT_XYZ[0, 2]
             else:
                 TARGET_POS = BOX_CORNER
                 INIT_XYZ = BOX_CORNER.reshape(1,3)
                 corner_ind = ctrl_counter
-                line_counter = 1
+                line_counter += 1
         elif line_counter == 1:
             BOX_CORNER = np.array([BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT])
-            if (uav_pos-BOX_CORNER)[1] < 0:
+            e = (uav_pos-BOX_CORNER)[1]
+            # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            SPEED = MAX_SPEED
+            if e < 0:
                 TARGET_POS = INIT_XYZ[0, 0], INIT_XYZ[0, 1] + SPEED*(ctrl_counter-corner_ind), INIT_XYZ[0, 2]
             else:
                 TARGET_POS = BOX_CORNER
                 INIT_XYZ = BOX_CORNER.reshape(1,3)
                 corner_ind = ctrl_counter
-                line_counter = 2
+                line_counter += 1
         elif line_counter == 2:
             BOX_CORNER = np.array([-BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT])
-            if (uav_pos-BOX_CORNER)[0] > 0:
+            e = (uav_pos-BOX_CORNER)[0]
+            # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            SPEED = MAX_SPEED
+            if e > 0:
                 TARGET_POS = INIT_XYZ[0, 0] - SPEED*(ctrl_counter-corner_ind), INIT_XYZ[0, 1], INIT_XYZ[0, 2]
             else:
                 TARGET_POS = BOX_CORNER
                 INIT_XYZ = BOX_CORNER.reshape(1,3)
                 corner_ind = ctrl_counter
-                line_counter = 3
+                line_counter += 1
         elif line_counter == 3:
             BOX_CORNER = np.array([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT])
-            if (uav_pos-BOX_CORNER)[1] > 0:
+            e = (uav_pos-BOX_CORNER)[1]
+            # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            SPEED = MAX_SPEED
+            if e > 0:
                 TARGET_POS = INIT_XYZ[0, 0], INIT_XYZ[0, 1] - SPEED*(ctrl_counter-corner_ind), INIT_XYZ[0, 2]
             else:
                 TARGET_POS = BOX_CORNER
                 INIT_XYZ = BOX_CORNER.reshape(1,3)
                 corner_ind = ctrl_counter
-                line_counter = 4
+                line_counter += 1
         else:
             ARGS.visualize_box = False
             TARGET_POS = np.array([0,0,TABLE_HEIGHT+0.1])
