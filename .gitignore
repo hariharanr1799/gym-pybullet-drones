@@ -1,3 +1,6 @@
+.vscode/
+.idea/
+
 # TODOs 
 TODOs.md
 examples/debug.py
