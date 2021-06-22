@@ -72,7 +72,7 @@ if __name__ == "__main__":
     
     #### Initialize the simulation #############################
     TABLE_HEIGHT = 0.6385
-    Z_OFFSET = -0.0002
+    Z_OFFSET = 0.132
     INIT_XYZ = np.array([-BOX_SIDE/2, -BOX_SIDE/2, TABLE_HEIGHT+Z_OFFSET]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
