@@ -11,6 +11,8 @@ class CtrlAviary(BaseAviary):
     def __init__(self,
                  drone_model: DroneModel=DroneModel.CF2X,
                  num_drones: int=1,
+                 num_rotors: int=4,
+                 rotor_angle: int=0,
                  neighbourhood_radius: float=np.inf,
                  initial_xyzs=None,
                  initial_rpys=None,
@@ -54,6 +56,8 @@ class CtrlAviary(BaseAviary):
         """
         super().__init__(drone_model=drone_model,
                          num_drones=num_drones,
+                         num_rotors=num_rotors,
+                         rotor_angle=rotor_angle,
                          neighbourhood_radius=neighbourhood_radius,
                          initial_xyzs=initial_xyzs,
                          initial_rpys=initial_rpys,
@@ -78,9 +82,10 @@ class CtrlAviary(BaseAviary):
             indexed by drone Id in string format.
 
         """
-        #### Action vector ######## P0            P1            P2            P3
-        act_lower_bound = np.array([0.,           0.,           0.,           0.])
-        act_upper_bound = np.array([self.MAX_RPM, self.MAX_RPM, self.MAX_RPM, self.MAX_RPM])
+        #### Action vector ######## P0            P1            P2            P3            P4*          P5*
+
+        act_lower_bound = np.array([0.]*self.NUM_ROTORS)
+        act_upper_bound = np.array([self.MAX_RPM]*self.NUM_ROTORS)
         return spaces.Dict({str(i): spaces.Box(low=act_lower_bound,
                                                high=act_upper_bound,
                                                dtype=np.float32
@@ -98,9 +103,10 @@ class CtrlAviary(BaseAviary):
             each a Dict in the form {Box(20,), MultiBinary(NUM_DRONES)}.
 
         """
-        #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ       P0            P1            P2            P3
-        obs_lower_bound = np.array([-np.inf, -np.inf, 0.,     -1., -1., -1., -1., -np.pi, -np.pi, -np.pi, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, 0.,           0.,           0.,           0.])
-        obs_upper_bound = np.array([np.inf,  np.inf,  np.inf, 1.,  1.,  1.,  1.,  np.pi,  np.pi,  np.pi,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  self.MAX_RPM, self.MAX_RPM, self.MAX_RPM, self.MAX_RPM])
+        #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ       P0            P1            P2            P3            P4*         P5*
+        obs_lower_bound = np.array([-np.inf, -np.inf, 0.,     -1., -1., -1., -1., -np.pi, -np.pi, -np.pi, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf] + [0.]*self.NUM_ROTORS)
+        obs_upper_bound = np.array([np.inf,  np.inf,  np.inf, 1.,  1.,  1.,  1.,  np.pi,  np.pi,  np.pi,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf] + [self.MAX_RPM]*self.NUM_ROTORS)
+
         return spaces.Dict({str(i): spaces.Dict({"state": spaces.Box(low=obs_lower_bound,
                                                                      high=obs_upper_bound,
                                                                      dtype=np.float32

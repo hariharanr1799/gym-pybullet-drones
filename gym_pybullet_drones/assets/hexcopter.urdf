@@ -1,27 +1,21 @@
 <?xml version="1.0" ?>
 
-<robot name="cf2">
+<robot name="hexacopter">
 
-  <properties arm="0.0397" kf="3.16e-10" km="7.94e-12" thrust2weight="2.25" max_speed_kmh="30" gnd_eff_coeff="11.36859" prop_radius="2.31348e-2" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
+  <properties arm="0.398" kf="3.13e-5" km="7.5e-7" thrust2weight="2.25" max_speed_kmh="30" gnd_eff_coeff="11.36859" prop_radius="0.107" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
 
-  <link name="base_link"> 
+  <link name="base_link">
 
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.027"/>
+      <mass value="0.65"/>
       <inertia ixx="1.4e-5" ixy="0.0" ixz="0.0" iyy="1.4e-5" iyz="0.0" izz="2.17e-5"/>
     </inertial>
-
-    <!-- links>
-      <carlos url="https://arxiv.org/pdf/1608.05786.pdf" />
-      <julian url="http://mikehamer.info/assets/papers/Crazyflie%20Modelling.pdf" />
-      <mit url="http://groups.csail.mit.edu/robotics-center/public_papers/Landry15.pdf" />
-    </links -->
 
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="./hexcopter_s.stl" scale=" 0.001 0.001 0.001"/>
+        <mesh filename="./hexcopter_stl.stl" scale=" 1 1 1"/>
       </geometry> 
       <material name="grey">
         <color rgba=".5 .5 .5 1"/>
@@ -32,7 +26,7 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <cylinder radius=".06" length=".025"/> -->
-        <mesh filename="./hexcopter.stl" scale=" 0.001 0.001 0.001"/>
+        <mesh filename="./hexcopter_stl.stl" scale=" 1 1 1"/>
       </geometry>
     </collision>  
 
@@ -40,7 +34,7 @@
 
   <link name="prop0_link">
     <inertial>
-      <origin rpy="0 0 0" xyz="0.028 0.028 0"/>
+      <origin rpy="0 0 0" xyz="0.344 -0.199 0"/>
       <mass value="0"/>
       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
     </inertial>
@@ -52,7 +46,7 @@
 
   <link name="prop1_link">
     <inertial>
-      <origin rpy="0 0 0" xyz="-0.028 0.028 0"/>
+      <origin rpy="0 0 0" xyz="0 -0.398 0"/>
       <mass value="0"/>
       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
     </inertial>
@@ -64,7 +58,7 @@
 
   <link name="prop2_link">
     <inertial>
-      <origin rpy="0 0 0" xyz="-0.028 -0.028 0"/>
+      <origin rpy="0 0 0" xyz="-0.344 -0.199 0"/>
       <mass value="0"/>
       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
     </inertial>
@@ -76,7 +70,7 @@
 
   <link name="prop3_link">
     <inertial>
-      <origin rpy="0 0 0" xyz="0.028 -0.028 0"/>
+      <origin rpy="0 0 0" xyz="-0.344 0.199 0"/>
       <mass value="0"/>
       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
     </inertial>
@@ -84,6 +78,30 @@
   <joint name="prop3_joint" type="fixed">
     <parent link="base_link"/>
     <child link="prop3_link"/>
+  </joint>
+
+  <link name="prop4_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0.398 0"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="prop4_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop4_link"/>
+  </joint>
+
+  <link name="prop5_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.344 0.199 0"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="prop5_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop5_link"/>
   </joint>
 
   <link name="center_of_mass_link">

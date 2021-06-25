@@ -28,7 +28,7 @@ from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.envs.VisionAviary import VisionAviary
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
-from gym_pybullet_drones.control.SimplePIDControl import SimplePIDControl
+from gym_pybullet_drones.control.HexControl import HexControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
@@ -77,8 +77,10 @@ if __name__ == "__main__":
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
-    env = CtrlAviary(drone_model=DroneModel.CF2X,
+    env = CtrlAviary(drone_model=DroneModel.HEX,
                      num_drones=1,
+                     num_rotors=6,
+                     rotor_angle=10, #degrees
                      initial_xyzs=INIT_XYZ,
                      physics=Physics.PYB_GND,
                      neighbourhood_radius=10,
@@ -97,8 +99,8 @@ if __name__ == "__main__":
                 physicsClientId=env.CLIENT
                 )
 
-    print("========>", p.getBodyInfo(0))
-    print("========>", p.getDynamicsInfo(0,-1))
+    # print("========>", p.getBodyInfo(0))
+    # print("========>", p.getDynamicsInfo(0,-1))
     # p.changeDynamics(bodyUniqueId = 0, linkIndex = -1, lateralFriction = 0.5)
     # print("========>", p.getDynamicsInfo(0,-1))
 
@@ -110,8 +112,9 @@ if __name__ == "__main__":
                     num_drones=1
                     )
 
+    # time.sleep(10)
     #### Initialize the controller #############################
-    ctrl = DSLPIDControl(drone_model=DroneModel.CF2X)
+    ctrl = HexControl(drone_model=DroneModel.HEX)
 
     if ARGS.visualize_box:
         p.addUserDebugLine([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
