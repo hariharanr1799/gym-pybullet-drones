@@ -19,7 +19,8 @@ class DroneModel(Enum):
     CF2X = "cf2x"   # Bitcraze Craziflie 2.0 in the X configuration
     CF2P = "cf2p"   # Bitcraze Craziflie 2.0 in the + configuration
     HB = "hb"       # Generic quadrotor (with AscTec Hummingbird inertial properties)
-    HEX = "hexcopter" # Hexcopter
+    HEXX = "hexx" # Hexcopter in X configuration
+    HEXP = "hexp" # Hexcopter in + configuration
 
 ################################################################################
 
@@ -147,23 +148,24 @@ class BaseAviary(gym.Env):
         
         #### Dihedral rotors #######################################
         self.PROP_ANGLES = []
+        st = 0
+        if self.DRONE_MODEL in [DroneModel.HEXX, DroneModel.CF2X]:
+            st = 0.5
         for i in range(self.NUM_ROTORS):
-            angle = (i+0.5)*np.pi/3
+            angle = (i+st)*(2*np.pi)/self.NUM_ROTORS
             self.PROP_ANGLES.append(-angle)
         
         self.PROP_ANGLES = np.array(self.PROP_ANGLES)
         
         #### Compute constants #####################################
         self.GRAVITY = self.G*self.M
-        self.HOVER_RPM = np.sqrt(self.GRAVITY / (4*self.KF))
-        self.MAX_RPM = np.sqrt((self.THRUST2WEIGHT_RATIO*self.GRAVITY) / (4*self.KF))
+        self.HOVER_RPM = np.sqrt(self.GRAVITY / (self.NUM_ROTORS*self.KF))
+        self.MAX_RPM = np.sqrt((self.THRUST2WEIGHT_RATIO*self.GRAVITY) / (self.NUM_ROTORS*self.KF))
         self.MAX_THRUST = (self.NUM_ROTORS*self.KF*self.MAX_RPM**2)
         if self.DRONE_MODEL == DroneModel.CF2X:
             self.MAX_XY_TORQUE = (2*self.L*self.KF*self.MAX_RPM**2)/np.sqrt(2)
-        elif self.DRONE_MODEL in [DroneModel.CF2P, DroneModel.HB]:
+        elif self.DRONE_MODEL in [DroneModel.CF2P, DroneModel.HB, DroneModel.HEXP, DroneModel.HEXX]:
             self.MAX_XY_TORQUE = (self.L*self.KF*self.MAX_RPM**2)
-        elif self.DRONE_MODEL == DroneModel.HEX:
-            self.MAX_XY_TORQUE = (2*self.L*self.KF*self.MAX_RPM**2)/np.sqrt(2)
         self.MAX_Z_TORQUE = (2*self.KM*self.MAX_RPM**2)
         self.GND_EFF_H_CLIP = 0.25 * self.PROP_RADIUS * np.sqrt((15 * self.MAX_RPM**2 * self.KF * self.GND_EFF_COEFF) / self.MAX_THRUST)       
         #### Create attributes for vision tasks ####################
@@ -188,9 +190,14 @@ class BaseAviary(gym.Env):
                 self.A = np.array([ [1, 1, 1, 1], [1/np.sqrt(2), 1/np.sqrt(2), -1/np.sqrt(2), -1/np.sqrt(2)], [-1/np.sqrt(2), 1/np.sqrt(2), 1/np.sqrt(2), -1/np.sqrt(2)], [-1, 1, -1, 1] ])
             elif self.DRONE_MODEL in [DroneModel.CF2P, DroneModel.HB]:
                 self.A = np.array([ [1, 1, 1, 1], [0, 1, 0, -1], [-1, 0, 1, 0], [-1, 1, -1, 1] ])
-            elif self.DRONE_MODEL == DroneModel.HEX:
-                self.A = np.array([ [1, 1, 1, 1], [1/np.sqrt(2), 1/np.sqrt(2), -1/np.sqrt(2), -1/np.sqrt(2)], [-1/np.sqrt(2), 1/np.sqrt(2), 1/np.sqrt(2), -1/np.sqrt(2)], [-1, 1, -1, 1] ])
-            self.INV_A = np.linalg.inv(self.A)
+            elif self.DRONE_MODEL == DroneModel.HEXX: ### not edited
+                self.A = np.array([ [1, 1, 1, 1, 1, 1], [-0.5, -1, -0.5, 0.5, 1, 0.5], [-0.866, 0, 0.866, 0.866, 0, -0.866], [-1, 1, -1, 1, -1, 1] ])
+            elif self.DRONE_MODEL == DroneModel.HEXP: ### not edited
+                self.A = np.array([ [1, 1, 1, 1, 1, 1], [-0.5, -1, -0.5, 0.5, 1, 0.5], [-0.866, 0, 0.866, 0.866, 0, -0.866], [-1, 1, -1, 1, -1, 1] ])    
+            try:
+                self.INV_A = np.linalg.inv(self.A)
+            except:
+                self.INV_A = np.linalg.pinv(self.A)
             self.B_COEFF = np.array([1/self.KF, 1/(self.KF*self.L), 1/(self.KF*self.L), 1/self.KM])
         #### Connect to PyBullet ###################################
         if self.GUI:
@@ -360,7 +367,7 @@ class BaseAviary(gym.Env):
         #### Save, preprocess, and clip the action to the max. RPM #
         else:
             self._saveLastAction(action)
-            clipped_action = np.reshape(self._preprocessAction(action), (self.NUM_DRONES, 4))
+            clipped_action = np.reshape(self._preprocessAction(action), (self.NUM_DRONES, self.NUM_ROTORS))
         #### Repeat for as many as the aggregate physics steps #####
         for _ in range(self.AGGR_PHY_STEPS):
             #### Update and store the drones kinematic info for certain
@@ -497,8 +504,8 @@ class BaseAviary(gym.Env):
         self.GUI_INPUT_TEXT = -1*np.ones(self.NUM_DRONES)
         self.USE_GUI_RPM=False
         self.last_input_switch = 0
-        self.last_action = -1*np.ones((self.NUM_DRONES, 4))
-        self.last_clipped_action = np.zeros((self.NUM_DRONES, 4))
+        self.last_action = -1*np.ones((self.NUM_DRONES, self.NUM_ROTORS))
+        self.last_clipped_action = np.zeros((self.NUM_DRONES, self.NUM_ROTORS))
         self.gui_input = np.zeros(4)
         #### Initialize the drones kinemaatic information ##########
         self.pos = np.zeros((self.NUM_DRONES, 3))
@@ -586,7 +593,7 @@ class BaseAviary(gym.Env):
         """
         state = np.hstack([self.pos[nth_drone, :], self.quat[nth_drone, :], self.rpy[nth_drone, :],
                            self.vel[nth_drone, :], self.ang_v[nth_drone, :], self.last_clipped_action[nth_drone, :]])
-        return state.reshape(20,)
+        return state.reshape(16+self.NUM_ROTORS,)
 
     ################################################################################
 
@@ -720,15 +727,9 @@ class BaseAviary(gym.Env):
         """
         forces = np.array(rpm**2)*self.KF
         for i in range(self.NUM_ROTORS):
-            try:
-                force_x = forces[i]*np.sin(self.ROTOR_ANGLE)*np.cos(self.PROP_ANGLES[i])
-                force_y = forces[i]*np.sin(self.ROTOR_ANGLE)*np.sin(self.PROP_ANGLES[i])
-                force_z = forces[i]*np.cos(self.ROTOR_ANGLE)
-            except:
-                force_x = 0
-                force_y = 0
-                force_z = 0
-            
+            force_x = forces[i]*np.sin(self.ROTOR_ANGLE)*np.cos(self.PROP_ANGLES[i])
+            force_y = forces[i]*np.sin(self.ROTOR_ANGLE)*np.sin(self.PROP_ANGLES[i])
+            force_z = forces[i]*np.cos(self.ROTOR_ANGLE)
             p.applyExternalForce(self.DRONE_IDS[nth_drone],
                                 i,
                                 forceObj=[force_x, force_y, force_z],
@@ -737,14 +738,17 @@ class BaseAviary(gym.Env):
                                 physicsClientId=self.CLIENT
                                 )
             
-        torques = np.array(rpm**2)*np.cos(self.ROTOR_ANGLE)*self.KM
+        torques = np.array(rpm**2)*self.KM
+        torque_x = 0
+        torque_y = 0
         torque_z = 0
-        for i in range(len(torques)):
-            torque_z += torques[i]*(1-int(i%2==0)*2)
-        
+        for i in range(self.NUM_ROTORS):
+            torque_x += torques[i]*(1-int(i%2==0)*2)*np.sin(self.ROTOR_ANGLE)*np.cos(self.PROP_ANGLES[i])
+            torque_y += torques[i]*(1-int(i%2==0)*2)*np.sin(self.ROTOR_ANGLE)*np.sin(self.PROP_ANGLES[i])
+            torque_z += torques[i]*(1-int(i%2==0)*2)*np.cos(self.ROTOR_ANGLE)
         p.applyExternalTorque(self.DRONE_IDS[nth_drone],
                             self.NUM_ROTORS,
-                            torqueObj=[0, 0, torque_z],
+                            torqueObj=[torque_x, torque_y, torque_z],
                             flags=p.LINK_FRAME,
                             physicsClientId=self.CLIENT
                             )
@@ -769,17 +773,21 @@ class BaseAviary(gym.Env):
         """
         #### Kin. info of all links (propellers and center of mass)
         link_states = np.array(p.getLinkStates(self.DRONE_IDS[nth_drone],
-                                               linkIndices=[0, 1, 2, 3, 4],
+                                               linkIndices=[i for i in range(self.NUM_ROTORS+1)],
                                                computeLinkVelocity=1,
                                                computeForwardKinematics=1,
                                                physicsClientId=self.CLIENT
                                                ))
         #### Simple, per-propeller ground effects ##################
-        prop_heights = np.array([link_states[0, 0][2], link_states[1, 0][2], link_states[2, 0][2], link_states[3, 0][2]])
+        if self.NUM_ROTORS == 4:
+            prop_heights = np.array([link_states[0, 0][2], link_states[1, 0][2], link_states[2, 0][2], link_states[3, 0][2]])
+        elif self.NUM_ROTORS == 6:
+            prop_heights = np.array([link_states[0, 0][2], link_states[1, 0][2], link_states[2, 0][2], link_states[3, 0][2], link_states[4, 0][2], link_states[5, 0][2]])
+        
         prop_heights = np.clip(prop_heights, self.GND_EFF_H_CLIP, np.inf)
-        gnd_effects = np.array(rpm**2)*np.cos(self.ROTOR_ANGLE) * self.KF * self.GND_EFF_COEFF * (self.PROP_RADIUS/(4 * prop_heights))**2
+        gnd_effects = np.array(rpm**2)*np.cos(self.ROTOR_ANGLE) * self.KF * self.GND_EFF_COEFF * (self.PROP_RADIUS/(self.NUM_ROTORS * prop_heights))**2
         if np.abs(self.rpy[nth_drone,0]) < np.pi/2 and np.abs(self.rpy[nth_drone,1]) < np.pi/2:
-            for i in range(4):
+            for i in range(self.NUM_ROTORS):
                 p.applyExternalForce(self.DRONE_IDS[nth_drone],
                                      i,
                                      forceObj=[0, 0, gnd_effects[i]],
@@ -886,21 +894,29 @@ class BaseAviary(gym.Env):
         thrust = np.array(force)
         thrust_world_frame = np.dot(rotation, thrust)
         force_world_frame = thrust_world_frame - np.array([0, 0, self.GRAVITY])
-        z_torques = np.array(rpm**2)*np.cos(self.ROTOR_ANGLE)*self.KM
-        z_torque = 0
+
+        torques = np.array(rpm**2)*self.KM
+        torque_x = 0
+        torque_y = 0
+        torque_z = 0
         for i in range(self.NUM_ROTORS):
-            z_torque += z_torques[i]*(1-int(i%2==0)*2)
+            torque_x += torques[i]*(1-int(i%2==0)*2)*np.sin(self.ROTOR_ANGLE)*np.cos(self.PROP_ANGLES[i])
+            torque_y += torques[i]*(1-int(i%2==0)*2)*np.sin(self.ROTOR_ANGLE)*np.sin(self.PROP_ANGLES[i])
+            torque_z += torques[i]*(1-int(i%2==0)*2)*np.cos(self.ROTOR_ANGLE)
         
         if self.DRONE_MODEL==DroneModel.CF2X:
-            x_torque = (forces[0] + forces[1] - forces[2] - forces[3]) * (self.L/np.sqrt(2))
-            y_torque = (- forces[0] + forces[1] + forces[2] - forces[3]) * (self.L/np.sqrt(2))
+            torque_x += (forces[0] + forces[1] - forces[2] - forces[3]) * (self.L/np.sqrt(2))
+            torque_y += (- forces[0] + forces[1] + forces[2] - forces[3]) * (self.L/np.sqrt(2))
         elif self.DRONE_MODEL==DroneModel.CF2P or self.DRONE_MODEL==DroneModel.HB:
-            x_torque = (forces[1] - forces[3]) * self.L
-            y_torque = (-forces[0] + forces[2]) * self.L
-        elif self.DRONE_MODEL==DroneModel.HEX:
-            x_torque = ((-forces[1] + forces[4]) + (-forces[0] - forces[2] + forces[3] + forces[5]) * np.sin(np.pi/6)) * self.L
-            y_torque = (-forces[0] + forces[2] + forces[3] - forces[5]) * np.sin(np.pi/3) * self.L
-        torques = np.array([x_torque, y_torque, z_torque])
+            torque_x += (forces[1] - forces[3]) * self.L
+            torque_y += (-forces[0] + forces[2]) * self.L
+        elif self.DRONE_MODEL==DroneModel.HEXX:
+            torque_x += ((-forces[1] + forces[4]) + (-forces[0] - forces[2] + forces[3] + forces[5]) * np.sin(np.pi/6)) * self.L
+            torque_y += (-forces[0] + forces[2] + forces[3] - forces[5]) * np.sin(np.pi/3) * self.L
+        elif self.DRONE_MODEL==DroneModel.HEXP:
+            torque_x += (forces[1] + forces[2] - forces[4] - forces[5]) * np.sin(np.pi/3) * self.L
+            torque_y += ((forces[2] + forces[4] - forces[5] - forces[1]) * np.sin(np.pi/6) + (forces[3] - forces[0])) * self.L
+        torques = np.array([torque_x, torque_y, torque_z])
         torques = torques - np.cross(rpy_rates, np.dot(self.J, rpy_rates))
         rpy_rates_deriv = np.dot(self.J_INV, torques)
         no_pybullet_dyn_accs = force_world_frame / self.M
@@ -965,11 +981,11 @@ class BaseAviary(gym.Env):
         """
         if isinstance(action, collections.Mapping):
             for k, v in action.items(): 
-                res_v = np.resize(v, (1, 4)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
+                res_v = np.resize(v, (1, self.NUM_ROTORS)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
                 self.last_action[int(k), :] = res_v
         else: 
-            res_action = np.resize(action, (1, 4)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
-            self.last_action = np.reshape(res_action, (self.NUM_DRONES, 4))
+            res_action = np.resize(action, (1, self.NUM_ROTORS)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
+            self.last_action = np.reshape(res_action, (self.NUM_DRONES, self.NUM_ROTORS))
     
     ################################################################################
 
@@ -1058,7 +1074,7 @@ class BaseAviary(gym.Env):
         J_INV = np.linalg.inv(J)
         KF = float(URDF_TREE[0].attrib['kf'])
         KM = float(URDF_TREE[0].attrib['km'])
-        if self.DRONE_MODEL == DroneModel.HEX:
+        if self.DRONE_MODEL in [DroneModel.HEXP, DroneModel.HEXX]:
             COLLISION_H = 0.25
             COLLISION_R = 1
         else:

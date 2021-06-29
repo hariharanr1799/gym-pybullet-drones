@@ -34,8 +34,13 @@ class BaseControl(object):
         """
         #### Set general use constants #############################
         self.DRONE_MODEL = drone_model
+        self.G = g
+        self.m = self._getURDFParameter('m')
+        self.ixx = self._getURDFParameter('ixx')
+        self.iyy = self._getURDFParameter('iyy')
+        self.izz = self._getURDFParameter('izz')
         """DroneModel: The type of drone to control."""
-        self.GRAVITY = g*self._getURDFParameter('m')
+        self.GRAVITY = g*self.m
         """float: The gravitational force (M*g) acting on each drone."""
         self.KF = self._getURDFParameter('kf')
         """float: The coefficient converting RPMs into thrust."""

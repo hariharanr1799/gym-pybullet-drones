@@ -103,7 +103,7 @@ class SimplePIDControl(BaseControl):
         target_vel : ndarray, optional
             (3,1)-shaped array of floats containing the desired velocity.
         target_rpy_rates : ndarray, optional
-            (3,1)-shaped array of floats containing the the desired roll, pitch, and yaw rates.
+            (3,1)-shaped array of floats containing the desired roll, pitch, and yaw rates.
 
         Returns
         -------

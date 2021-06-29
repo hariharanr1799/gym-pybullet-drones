@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.envs.VisionAviary import VisionAviary
-from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
-from gym_pybullet_drones.control.HexControl import HexControl
+# from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
+from gym_pybullet_drones.control.HexControl import *
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
@@ -72,15 +72,15 @@ if __name__ == "__main__":
     
     #### Initialize the simulation #############################
     TABLE_HEIGHT = 0.6385
-    Z_OFFSET = 0.132
+    Z_OFFSET = 0.135
     INIT_XYZ = np.array([-BOX_SIDE/2, -BOX_SIDE/2, TABLE_HEIGHT+Z_OFFSET]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
-    env = CtrlAviary(drone_model=DroneModel.HEX,
+    env = CtrlAviary(drone_model=DroneModel.HEXP,
                      num_drones=1,
                      num_rotors=6,
-                     rotor_angle=10, #degrees
+                     rotor_angle=0, #degrees
                      initial_xyzs=INIT_XYZ,
                      physics=Physics.PYB_GND,
                      neighbourhood_radius=10,
@@ -93,11 +93,11 @@ if __name__ == "__main__":
                      )
     
     #### Add table #############################################
-    p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/gym_pybullet_drones/assets/table.urdf",
-                [0, 0, 0],
-                p.getQuaternionFromEuler([0, 0, 0]),
-                physicsClientId=env.CLIENT
-                )
+    # p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/gym_pybullet_drones/assets/table.urdf",
+    #             [0, 0, 0],
+    #             p.getQuaternionFromEuler([0, 0, 0]),
+    #             physicsClientId=env.CLIENT
+    #             )
 
     # print("========>", p.getBodyInfo(0))
     # print("========>", p.getDynamicsInfo(0,-1))
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     # time.sleep(10)
     #### Initialize the controller #############################
-    ctrl = HexControl(drone_model=DroneModel.HEX)
+    ctrl = HexPIDControlEul(drone_model=DroneModel.HEXP)
 
     if ARGS.visualize_box:
         p.addUserDebugLine([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     #### Run the simulation ####################################
     CTRL_EVERY_N_STEPS = int(np.floor(env.SIM_FREQ/ARGS.control_freq_hz))
-    action = {"0": np.array([0,0,0,0])}
+    action = {"0": np.array([0,0,0,0,0,0])}
     START = time.time()
     ctrl_counter = 0
     line_counter = 0
@@ -150,7 +150,7 @@ if __name__ == "__main__":
             e = (uav_pos-BOX_CORNER)[0]
             # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             SPEED = MAX_SPEED
-            print("========>>", MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            # print("========>>", MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             if e < 0:
                 TARGET_POS = INIT_XYZ[0, 0] + SPEED*(ctrl_counter-corner_ind), INIT_XYZ[0, 1], INIT_XYZ[0, 2]
             else:
@@ -200,7 +200,11 @@ if __name__ == "__main__":
         
         #### Visualize the box #####################################
         if ARGS.visualize_box:
-            p.addUserDebugLine(uav_pos_old, uav_pos, [0,1,0])
+            a = uav_pos_old
+            b = uav_pos
+            a[2] = TABLE_HEIGHT
+            b[2] = TABLE_HEIGHT
+            p.addUserDebugLine(a, b, [0,1,0])
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:

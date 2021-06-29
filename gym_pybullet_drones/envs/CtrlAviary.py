@@ -153,7 +153,7 @@ class CtrlAviary(BaseAviary):
             commanded to the 4 motors of each drone.
 
         """
-        clipped_action = np.zeros((self.NUM_DRONES, 4))
+        clipped_action = np.zeros((self.NUM_DRONES, self.NUM_ROTORS))
         for k, v in action.items():
             clipped_action[int(k), :] = np.clip(np.array(v), 0, self.MAX_RPM)
         return clipped_action
