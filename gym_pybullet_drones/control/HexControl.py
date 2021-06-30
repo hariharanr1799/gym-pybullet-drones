@@ -34,12 +34,12 @@ class HexPIDControlEul(BaseControl):
         if self.DRONE_MODEL not in [DroneModel.HEXX, DroneModel.HEXP]:
             print("[ERROR] in HexPIDControl.__init__(), HexPIDControl requires DroneModel.HEXP or DroneModel.HEXX, Current Model:", self.DRONE_MODEL)
             exit()
-        self.P_COEFF_FOR = np.array([5, 3, 5])
+        self.P_COEFF_FOR = np.array([3, 3, 15])
         self.I_COEFF_FOR = np.array([0.05, 0.05, 0.05])
-        self.D_COEFF_FOR = np.array([3.25, 3.25, 3.25])
-        self.P_COEFF_TOR = np.array([0.0014, 0.0014, 0.0024])
-        self.I_COEFF_TOR = np.array([0.0468, 0.0468, 0.0468])
-        self.D_COEFF_TOR = np.array([5.245, 5.245, 5.245])
+        self.D_COEFF_FOR = np.array([4, 4, 10])
+        self.P_COEFF_TOR = np.array([200, 200, 200])
+        self.I_COEFF_TOR = np.array([0, 0, 0])
+        self.D_COEFF_TOR = np.array([100, 100, 100])
         self.MAX_ROLL_PITCH = np.pi/6
         self.L = self._getURDFParameter('arm')
         self.THRUST2WEIGHT_RATIO = self._getURDFParameter('thrust2weight')
@@ -171,10 +171,10 @@ class HexPIDControlEul(BaseControl):
         self.last_pos_e = pos_e
         self.integral_pos_e = self.integral_pos_e + pos_e*control_timestep
         #### PID target thrust #####################################
-        target_force = np.array([0, 0, self.GRAVITY]) \
+        target_force = self.m*(np.array([0, 0, self.G]) \
                        + np.multiply(self.P_COEFF_FOR, pos_e) \
                        + np.multiply(self.I_COEFF_FOR, self.integral_pos_e) \
-                       + np.multiply(self.D_COEFF_FOR, d_pos_e)
+                       + np.multiply(self.D_COEFF_FOR, d_pos_e))
         target_rpy = np.zeros(3)
         sign_z =  np.sign(target_force[2])
         if sign_z == 0:
@@ -186,7 +186,7 @@ class HexPIDControlEul(BaseControl):
         target_rpy[0] = np.clip(target_rpy[0], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         target_rpy[1] = np.clip(target_rpy[1], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         cur_rotation = np.array(p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
-        thrust = np.dot(cur_rotation, target_force)
+        thrust = np.clip(np.dot(cur_rotation, target_force), -self.MAX_THRUST, self.MAX_THRUST)
         return thrust[2], target_rpy, pos_e
 
     ################################################################################
@@ -226,9 +226,9 @@ class HexPIDControlEul(BaseControl):
         self.last_rpy_e = rpy_e
         self.integral_rpy_e = self.integral_rpy_e + rpy_e*control_timestep
         #### PID target torques ####################################
-        target_torques = np.multiply(self.P_COEFF_TOR, rpy_e) \
+        target_torques = np.multiply(np.array([self.ixx, self.iyy, self.izz]), np.multiply(self.P_COEFF_TOR, rpy_e) \
                          + np.multiply(self.I_COEFF_TOR, self.integral_rpy_e) \
-                         + np.multiply(self.D_COEFF_TOR, d_rpy_e)
+                         + np.multiply(self.D_COEFF_TOR, d_rpy_e))
         return nnlsRPM(thrust=thrust,
                        x_torque=target_torques[0],
                        y_torque=target_torques[1],

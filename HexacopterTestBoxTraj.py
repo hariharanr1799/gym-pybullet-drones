@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.envs.VisionAviary import VisionAviary
-# from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.control.HexControl import *
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
@@ -64,6 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('--control_freq_hz',    default=250,        type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--duration_sec',       default=25,          type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
     parser.add_argument('--visualize_box',       default=True,          type=str2bool,           help='Visualize the boxes (default: True)', metavar='')
+    parser.add_argument('--drone_model',       default=DroneModel.HEXP,          type=DroneModel,           help='Drone Model (default: True)', metavar='')
     ARGS = parser.parse_args()
 
     #### Box parameters ########################################
@@ -72,17 +72,17 @@ if __name__ == "__main__":
     
     #### Initialize the simulation #############################
     TABLE_HEIGHT = 0.6385
-    Z_OFFSET = 0.135
-    INIT_XYZ = np.array([-BOX_SIDE/2, -BOX_SIDE/2, TABLE_HEIGHT+Z_OFFSET]).reshape(1,3)
+    Z_OFFSET = 0.132
+    INIT_XYZ = np.array([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT+Z_OFFSET]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
-    env = CtrlAviary(drone_model=DroneModel.HEXP,
+    env = CtrlAviary(drone_model=ARGS.drone_model,
                      num_drones=1,
                      num_rotors=6,
                      rotor_angle=0, #degrees
                      initial_xyzs=INIT_XYZ,
-                     physics=Physics.PYB_GND,
+                     physics=Physics.PYB,
                      neighbourhood_radius=10,
                      freq=ARGS.simulation_freq_hz,
                      aggregate_phy_steps=AGGR_PHY_STEPS,
@@ -91,18 +91,6 @@ if __name__ == "__main__":
                      obstacles=ARGS.obstacles,
                      user_debug_gui=ARGS.user_debug_gui
                      )
-    
-    #### Add table #############################################
-    # p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/gym_pybullet_drones/assets/table.urdf",
-    #             [0, 0, 0],
-    #             p.getQuaternionFromEuler([0, 0, 0]),
-    #             physicsClientId=env.CLIENT
-    #             )
-
-    # print("========>", p.getBodyInfo(0))
-    # print("========>", p.getDynamicsInfo(0,-1))
-    # p.changeDynamics(bodyUniqueId = 0, linkIndex = -1, lateralFriction = 0.5)
-    # print("========>", p.getDynamicsInfo(0,-1))
 
     #### Obtain the PyBullet Client ID from the environment ####
     PYB_CLIENT = env.getPyBulletClient()
@@ -112,9 +100,8 @@ if __name__ == "__main__":
                     num_drones=1
                     )
 
-    # time.sleep(10)
     #### Initialize the controller #############################
-    ctrl = HexPIDControlEul(drone_model=DroneModel.HEXP)
+    ctrl = HexPIDControlEul(drone_model=ARGS.drone_model)
 
     if ARGS.visualize_box:
         p.addUserDebugLine([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT], [0,0,1])
@@ -124,7 +111,7 @@ if __name__ == "__main__":
 
     #### Run the simulation ####################################
     CTRL_EVERY_N_STEPS = int(np.floor(env.SIM_FREQ/ARGS.control_freq_hz))
-    action = {"0": np.array([0,0,0,0,0,0])}
+    action = {"0": np.array([0]*6)}
     START = time.time()
     ctrl_counter = 0
     line_counter = 0
@@ -137,18 +124,17 @@ if __name__ == "__main__":
 
         #### Update old desired and actual position ###############
         uav_pos_old = uav_pos
-        TARGET_POS_OLD = TARGET_POS
 
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
         uav_pos = obs["0"]["state"][0:3]
         MAX_SPEED = (BOX_SIDE/TIME_SIDE)/ARGS.control_freq_hz
-
+        
         #### Compute desired position ##############################       
         if line_counter == 0:
-            BOX_CORNER = np.array([BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT])
+            BOX_CORNER = np.array([BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT+Z_OFFSET])
             e = (uav_pos-BOX_CORNER)[0]
-            # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
+            # SPEED = min(MAX_SPEED, max(abs(e)/ARGS.control_freq_hz, 0.0001))
             SPEED = MAX_SPEED
             # print("========>>", MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             if e < 0:
@@ -159,7 +145,7 @@ if __name__ == "__main__":
                 corner_ind = ctrl_counter
                 line_counter += 1
         elif line_counter == 1:
-            BOX_CORNER = np.array([BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT])
+            BOX_CORNER = np.array([BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT+Z_OFFSET])
             e = (uav_pos-BOX_CORNER)[1]
             # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             SPEED = MAX_SPEED
@@ -171,7 +157,7 @@ if __name__ == "__main__":
                 corner_ind = ctrl_counter
                 line_counter += 1
         elif line_counter == 2:
-            BOX_CORNER = np.array([-BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT])
+            BOX_CORNER = np.array([-BOX_SIDE/2,BOX_SIDE/2,TABLE_HEIGHT+Z_OFFSET])
             e = (uav_pos-BOX_CORNER)[0]
             # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             SPEED = MAX_SPEED
@@ -183,7 +169,7 @@ if __name__ == "__main__":
                 corner_ind = ctrl_counter
                 line_counter += 1
         elif line_counter == 3:
-            BOX_CORNER = np.array([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT])
+            BOX_CORNER = np.array([-BOX_SIDE/2,-BOX_SIDE/2,TABLE_HEIGHT+Z_OFFSET])
             e = (uav_pos-BOX_CORNER)[1]
             # SPEED = min(MAX_SPEED, abs(e)/ARGS.control_freq_hz)
             SPEED = MAX_SPEED
@@ -196,15 +182,7 @@ if __name__ == "__main__":
                 line_counter += 1
         else:
             ARGS.visualize_box = False
-            TARGET_POS = np.array([0,0,TABLE_HEIGHT+0.1])
-        
-        #### Visualize the box #####################################
-        if ARGS.visualize_box:
-            a = uav_pos_old
-            b = uav_pos
-            a[2] = TABLE_HEIGHT
-            b[2] = TABLE_HEIGHT
-            p.addUserDebugLine(a, b, [0,1,0])
+            TARGET_POS = np.array([0,0,TABLE_HEIGHT+0.5])
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:
@@ -214,6 +192,7 @@ if __name__ == "__main__":
                                                              state=obs["0"]["state"],
                                                              target_pos=TARGET_POS,
                                                              )
+            # print("====>", action["0"])
 
             #### Go to the next way point and loop #####################
             ctrl_counter = ctrl_counter + 1 #if ctrl_counter < (NUM_WP-1) else 0
@@ -225,9 +204,16 @@ if __name__ == "__main__":
                    control=np.hstack([TARGET_POS, np.zeros(9)])
                    )
 
+        #### Visualize the box #####################################
+        if ARGS.visualize_box:
+            a = uav_pos_old - np.array([0, 0, Z_OFFSET])
+            b = uav_pos - np.array([0, 0, Z_OFFSET])
+            p.addUserDebugLine(a, b, [0,1,0])
+
         #### Printout ##############################################
         if i%env.SIM_FREQ == 0:
             env.render()
+        
 
         #### Sync the simulation ###################################
         if ARGS.gui:
@@ -259,5 +245,5 @@ if __name__ == "__main__":
 
     #### Plot the simulation results ###########################
     if ARGS.plot:
-        plotContactData()
+        # plotContactData()
         logger.plot()

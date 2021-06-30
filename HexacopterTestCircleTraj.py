@@ -73,14 +73,14 @@ if __name__ == "__main__":
     #### Initialize the simulation #############################
     TABLE_HEIGHT = 0.6385
     Z_OFFSET = 0.132
-    INIT_XYZ = np.array([0,0,Z_OFFSET]).reshape(1,3)
+    INIT_XYZ = np.array([0,0,1]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
     env = CtrlAviary(drone_model=ARGS.drone_model,
                      num_drones=1,
                      num_rotors=6,
-                     rotor_angle=0, #degrees
+                     rotor_angle=10, #degrees
                      initial_xyzs=INIT_XYZ,
                      physics=Physics.PYB,
                      neighbourhood_radius=10,
@@ -126,7 +126,9 @@ if __name__ == "__main__":
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
         
-        TARGET_POS = [10]*3
+        TARGET_POS = [1]*3
+        TARGET_POS[0] = 1*np.cos(i/150)
+        TARGET_POS[1] = 1*np.sin(i/150)
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:
