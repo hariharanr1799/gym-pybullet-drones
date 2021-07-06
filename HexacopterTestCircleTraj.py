@@ -60,8 +60,8 @@ if __name__ == "__main__":
     parser.add_argument('--aggregate',          default=False,       type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--obstacles',          default=False,       type=str2bool,      help='Whether to add obstacles to the environment (default: True)', metavar='')
     parser.add_argument('--simulation_freq_hz', default=250,        type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
-    parser.add_argument('--control_freq_hz',    default=250,        type=int,           help='Control frequency in Hz (default: 48)', metavar='')
-    parser.add_argument('--duration_sec',       default=10,          type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
+    parser.add_argument('--control_freq_hz',    default=100,        type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--duration_sec',       default=20,          type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
     parser.add_argument('--visualize_box',       default=True,          type=str2bool,           help='Visualize the boxes (default: True)', metavar='')
     parser.add_argument('--drone_model',       default=DroneModel.HEXP,          type=DroneModel,           help='Drone Model (default: True)', metavar='')
     ARGS = parser.parse_args()
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     #### Initialize the simulation #############################
     TABLE_HEIGHT = 0.6385
     Z_OFFSET = 0.132
-    INIT_XYZ = np.array([0,0,1]).reshape(1,3)
+    INIT_XYZ = np.array([1,0,1]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
@@ -82,7 +82,7 @@ if __name__ == "__main__":
                      num_rotors=6,
                      rotor_angle=10, #degrees
                      initial_xyzs=INIT_XYZ,
-                     physics=Physics.PYB,
+                     physics=Physics.PYB_GND_DRAG_DW,
                      neighbourhood_radius=10,
                      freq=ARGS.simulation_freq_hz,
                      aggregate_phy_steps=AGGR_PHY_STEPS,
@@ -120,11 +120,19 @@ if __name__ == "__main__":
     
     uav_pos = INIT_XYZ.reshape(3,)
     TARGET_POS = INIT_XYZ.reshape(3,)
+    error = 0
+    ERROR = []
+    ERROR_XY = []
 
     for i in range(0, int(ARGS.duration_sec*env.SIM_FREQ), AGGR_PHY_STEPS):
 
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
+        e = np.linalg.norm(np.array(TARGET_POS) - np.array(obs["0"]["state"][:3]))
+        e_xy = np.linalg.norm(np.array(TARGET_POS[:2]) - np.array(obs["0"]["state"][:2]))
+        ERROR.append(e)
+        ERROR_XY.append(e_xy)
+        error += (e**2)*AGGR_PHY_STEPS
         
         TARGET_POS = [1]*3
         TARGET_POS[0] = 1*np.cos(i/150)
@@ -164,6 +172,16 @@ if __name__ == "__main__":
     #### Save the simulation results ###########################
     # logger.save()
     # logger.save_as_csv("gnd") # Optional CSV save
+
+    #### Print RMSE ############################################
+    RMSE = np.sqrt(error/int(ARGS.duration_sec*env.SIM_FREQ))
+    plt.figure()
+    plt.title('Error (m) vs Time t (s)')
+    plt.plot(ERROR, label = 'Error')
+    plt.plot(ERROR_XY, label = 'Error XY')
+    print("=========>> RMSE: ", RMSE)
+    plt.legend()
+    plt.show()
 
     #### Print Contact Details #################################
     contact_forces = []

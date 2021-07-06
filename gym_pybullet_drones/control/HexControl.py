@@ -34,9 +34,9 @@ class HexPIDControlEul(BaseControl):
         if self.DRONE_MODEL not in [DroneModel.HEXX, DroneModel.HEXP]:
             print("[ERROR] in HexPIDControl.__init__(), HexPIDControl requires DroneModel.HEXP or DroneModel.HEXX, Current Model:", self.DRONE_MODEL)
             exit()
-        self.P_COEFF_FOR = np.array([3, 3, 15])
-        self.I_COEFF_FOR = np.array([0.05, 0.05, 0.05])
-        self.D_COEFF_FOR = np.array([4, 4, 10])
+        self.P_COEFF_FOR = np.array([25, 25, 70])
+        self.I_COEFF_FOR = np.array([0.5, 0.5, 0.5])
+        self.D_COEFF_FOR = np.array([10, 10, 20])
         self.P_COEFF_TOR = np.array([200, 200, 200])
         self.I_COEFF_TOR = np.array([0, 0, 0])
         self.D_COEFF_TOR = np.array([100, 100, 100])

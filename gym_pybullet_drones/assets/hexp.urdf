@@ -2,14 +2,14 @@
 
 <robot name="hexacopter">
 
-  <properties arm="0.398" kf="2.98e-6" km="1.14e-7" thrust2weight="2" max_speed_kmh="30" gnd_eff_coeff="11.36859" prop_radius="0.107" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
+  <properties arm="0.398" kf="2.88e-5" km="1.2e-6" thrust2weight="2" max_speed_kmh="30" gnd_eff_coeff="11.36859" prop_radius="0.107" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
 
   <link name="base_link">
 
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.468"/>
-      <inertia ixx="4.85e-3" ixy="0.0" ixz="0.0" iyy="4.85e-3" iyz="0.0" izz="8.8e-3"/>
+      <mass value="3.752"/>
+      <inertia ixx="8.358e-2" ixy="9.124e-5" ixz="1.541e-5" iyy="8.756e-2" iyz="1e-5" izz="1.563e-1"/>
     </inertial>
 
     <visual>
