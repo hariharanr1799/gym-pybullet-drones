@@ -28,6 +28,7 @@ from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.envs.VisionAviary import VisionAviary
 from gym_pybullet_drones.control.HexControl import *
+from gym_pybullet_drones.control.ModelPredControl import HexMPC
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
@@ -59,9 +60,9 @@ if __name__ == "__main__":
     parser.add_argument('--user_debug_gui',     default=False,              type=str2bool,      help='Whether to add debug lines and parameters to the GUI (default: False)', metavar='')
     parser.add_argument('--aggregate',          default=False,              type=str2bool,      help='Whether to aggregate physics steps (default: False)', metavar='')
     parser.add_argument('--obstacles',          default=False,              type=str2bool,      help='Whether to add obstacles to the environment (default: True)', metavar='')
-    parser.add_argument('--simulation_freq_hz', default=240,                type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
-    parser.add_argument('--control_freq_hz',    default=240,                 type=int,           help='Control frequency in Hz (default: 48)', metavar='')
-    parser.add_argument('--sensor_freq_hz',     default=240,                 type=int,           help='Sensor frequency in Hz (default: 30)', metavar='')
+    parser.add_argument('--simulation_freq_hz', default=250,                type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
+    parser.add_argument('--control_freq_hz',    default=250,                 type=int,           help='Control frequency in Hz (default: 48)', metavar='')
+    parser.add_argument('--sensor_freq_hz',     default=250,                 type=int,           help='Sensor frequency in Hz (default: 30)', metavar='')
     parser.add_argument('--duration_sec',       default=5,                  type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
     parser.add_argument('--visualize_box',      default=True,               type=str2bool,      help='Visualize the boxes (default: True)', metavar='')
     parser.add_argument('--drone_model',        default=DroneModel.HEXP,    type=DroneModel,    help='Drone Model (default: True)', metavar='')
@@ -70,7 +71,7 @@ if __name__ == "__main__":
     #### Box parameters ########################################
     BOX_SIDE = 0.2 # m
     TIME_SIDE = 5 #s
-    INIT_XYZ = np.array([0,0,1]).reshape(1,3)
+    INIT_XYZ = np.array([0,0,0.2]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################
@@ -79,7 +80,7 @@ if __name__ == "__main__":
                      num_rotors=6,
                      rotor_angle=0, #degrees
                      initial_xyzs=INIT_XYZ,
-                     physics=Physics.PYB_GND_DRAG_DW,
+                     physics=Physics.PYB,
                      neighbourhood_radius=10,
                      freq=ARGS.simulation_freq_hz,
                      aggregate_phy_steps=AGGR_PHY_STEPS,
@@ -98,8 +99,6 @@ if __name__ == "__main__":
                     )
 
     # time.sleep(10)
-    #### Initialize the controller #############################
-    ctrl = HexPIDControlEul(drone_model=ARGS.drone_model)
 
     #### Run the simulation ####################################
     CTRL_EVERY_N_STEPS = int(np.floor(env.SIM_FREQ/ARGS.control_freq_hz))
@@ -113,31 +112,27 @@ if __name__ == "__main__":
     uav_pos = INIT_XYZ.reshape(3,)
     TARGET_POS = INIT_XYZ.reshape(3,)
 
+    #### Initialize the controller #############################
+    ctrl = HexMPC(drone_model=ARGS.drone_model, init_xyz=INIT_XYZ)
+    
     for i in range(0, int(ARGS.duration_sec*env.SIM_FREQ), AGGR_PHY_STEPS):
 
         #### Step the simulation ###################################
         obs, reward, done, info = env.step(action)
         
-        if i%SENSOR_EVERY_N_STEPS == 0:
-            state = obs["0"]["state"]
-            #### Adding sensor noise to the system #####################
-            # state[0:3] += np.random.normal(0,1e-5,3)
-            # state[3:7] += np.random.normal(0,1e-10,4)
-            # state[7:10] += np.random.normal(0,1e-10,3)
-            # state[10:13] += np.random.normal(0,2e-7,3)
-            # state[13:16] += np.random.normal(0,1e-8,3)
+        state = obs["0"]["state"]
         
-        TARGET_POS = [1,0,1]
+        TARGET_POS = [0,0,1]
 
         #### Compute control at the desired frequency ##############
         if i%CTRL_EVERY_N_STEPS == 0:
 
             #### Compute control for the current way point #############
-            action["0"], _, _ = ctrl.computeControlFromState(control_timestep=CTRL_EVERY_N_STEPS*env.TIMESTEP,
+            action["0"] = ctrl.computeControlFromState(control_timestep=CTRL_EVERY_N_STEPS*env.TIMESTEP,
                                                              state=state,
                                                              target_pos=TARGET_POS,
                                                              )
-            # print("====>", action["0"])
+            print("====>", i)
 
             #### Go to the next way point and loop #####################
             ctrl_counter = ctrl_counter + 1 #if ctrl_counter < (NUM_WP-1) else 0
@@ -161,7 +156,7 @@ if __name__ == "__main__":
     env.close()
 
     #### Save the simulation results ###########################
-    # logger.save()
+    logger.save()
     # logger.save_as_csv("gnd") # Optional CSV save
 
     #### Print Contact Details #################################
