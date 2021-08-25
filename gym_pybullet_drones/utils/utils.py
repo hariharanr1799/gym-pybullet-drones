@@ -55,13 +55,16 @@ def str2bool(val):
 
 ################################################################################
 
-def nnlsRPM(thrust,
+def nnlsRPM(x_force,
+            y_force,
+            z_force,
             x_torque,
             y_torque,
             z_torque,
             counter,
             max_thrust,
-            max_xy_torque,
+            max_x_torque,
+            max_y_torque,
             max_z_torque,
             a,
             inv_a,
@@ -106,15 +109,15 @@ def nnlsRPM(thrust,
 
     """
     #### Check the feasibility of thrust and torques ###########
-    if gui and thrust < 0 or thrust > max_thrust:
-        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible thrust {:.2f} outside range [0, {:.2f}]".format(thrust, max_thrust))
-    if gui and np.abs(x_torque) > max_xy_torque:
-        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible roll torque {:.2f} outside range [{:.2f}, {:.2f}]".format(x_torque, -max_xy_torque, max_xy_torque))
-    if gui and np.abs(y_torque) > max_xy_torque:
-        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible pitch torque {:.2f} outside range [{:.2f}, {:.2f}]".format(y_torque, -max_xy_torque, max_xy_torque))
+    if gui and z_force < 0 or z_force > max_thrust:
+        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible thrust {:.2f} outside range [0, {:.2f}]".format(z_force, max_thrust))
+    if gui and np.abs(x_torque) > max_x_torque:
+        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible roll torque {:.2f} outside range [{:.2f}, {:.2f}]".format(x_torque, -max_x_torque, max_x_torque))
+    if gui and np.abs(y_torque) > max_y_torque:
+        print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible pitch torque {:.2f} outside range [{:.2f}, {:.2f}]".format(y_torque, -max_y_torque, max_y_torque))
     if gui and np.abs(z_torque) > max_z_torque:
         print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible yaw torque {:.2f} outside range [{:.2f}, {:.2f}]".format(z_torque, -max_z_torque, max_z_torque))
-    B = np.multiply(np.array([thrust, x_torque, y_torque, z_torque]), b_coeff)
+    B = np.multiply(np.array([x_force, y_force, z_force, x_torque, y_torque, z_torque]), b_coeff)
     sq_rpm = np.dot(inv_a, B)
     #### NNLS if any of the desired ang vel is negative ########
     if np.min(sq_rpm) < 0:

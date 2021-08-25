@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('--simulation_freq_hz', default=250,                type=int,           help='Simulation frequency in Hz (default: 240)', metavar='')
     parser.add_argument('--control_freq_hz',    default=50,                 type=int,           help='Control frequency in Hz (default: 48)', metavar='')
     parser.add_argument('--sensor_freq_hz',     default=250,                 type=int,           help='Sensor frequency in Hz (default: 30)', metavar='')
-    parser.add_argument('--duration_sec',       default=5,                  type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
+    parser.add_argument('--duration_sec',       default=10,                  type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
     parser.add_argument('--visualize_box',      default=True,               type=str2bool,      help='Visualize the boxes (default: True)', metavar='')
     parser.add_argument('--drone_model',        default=DroneModel.HEXP,    type=DroneModel,    help='Drone Model (default: True)', metavar='')
     ARGS = parser.parse_args()
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     #### Box parameters ########################################
     BOX_SIDE = 0.2 # m
     TIME_SIDE = 5 #s
-    INIT_XYZ = np.array([0,0,0.2]).reshape(1,3)
+    INIT_XYZ = np.array([0,0,0.15]).reshape(1,3)
     AGGR_PHY_STEPS = int(ARGS.simulation_freq_hz/ARGS.control_freq_hz) if ARGS.aggregate else 1
 
     #### Create the environment ################################

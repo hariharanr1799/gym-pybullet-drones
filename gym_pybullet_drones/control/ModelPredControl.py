@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import pybullet as p
+import pybullet as pyb
 import do_mpc
 from casadi import *
 from scipy.spatial.transform import Rotation
@@ -215,7 +215,7 @@ class HexMPC_(BaseControl):
         self.control_counter += 1
         self.ref[:3] = target_pos
 
-        cur_rpy = list(p.getEulerFromQuaternion(cur_quat))
+        cur_rpy = list(pyb.getEulerFromQuaternion(cur_quat))
 
         x = np.hstack((cur_pos, cur_rpy, cur_vel, cur_ang_vel)).reshape(-1,1)
         u = self.mpc.make_step(x)
@@ -262,13 +262,24 @@ class HexMPC(BaseControl):
         self.THRUST2WEIGHT_RATIO = self._getURDFParameter('thrust2weight')
         self.MAX_RPM = np.sqrt((self.THRUST2WEIGHT_RATIO*self.GRAVITY) / (6*self.KF))
         self.MAX_THRUST = (6*self.KF*self.MAX_RPM**2)
-        self.MAX_XY_TORQUE = (2*self.L*self.KF*self.MAX_RPM**2)
+        if self.DRONE_MODEL == DroneModel.HEXX:
+            self.MAX_X_TORQUE = (self.L*self.KF*self.MAX_RPM**2)*2
+            self.MAX_Y_TORQUE = (self.L*self.KF*self.MAX_RPM**2)*sqrt(3)
+            self.A = np.array([[0]*6, [0]*6, [1, 1, 1, 1, 1, 1], [0.5, 1, 0.5, -0.5, -1, -0.5], [-0.866, 0, 0.866, 0.866, 0, -0.866], [-1, 1, -1, 1, -1, 1]])
+        elif self.DRONE_MODEL == DroneModel.HEXP:
+            self.MAX_X_TORQUE = (self.L*self.KF*self.MAX_RPM**2)*sqrt(3)
+            self.MAX_Y_TORQUE = (self.L*self.KF*self.MAX_RPM**2)*2
+            self.A = np.array([[0]*6, [0]*6, [1, 1, 1, 1, 1, 1], [0, 0.866, 0.866, 0, -0.866, -0.866], [-1, -0.5, 0.5, 1, 0.5, -0.5], [-1, 1, -1, 1, -1, 1]])
         self.MAX_Z_TORQUE = (2*self.KM*self.MAX_RPM**2)
+        self.INV_A = np.linalg.pinv(self.A)
+        self.B_COEFF = np.array([0, 0, 1/self.KF, 1/(self.KF*self.L), 1/(self.KF*self.L), 1/self.KM])
 
-        self.N_HORIZON = 10
-        self.TIME_STEP = 0.1
-        self.Q = np.array([1,1,1,1,1,1,0,0,0,0,0,0])*2
+        self.N_HORIZON = 5
+        self.TIME_STEP = 0.05
+        self.Q = np.array([1,1,1,1,1,1,0,0,0,0,0,0])*1
         self.ref = np.array([0,0,1,0,0,0,0,0,0,0,0,0])
+
+        self.MODEL_TYPE = "NL"
         
         self.MPC_init(init_xyz)
         self.reset()
@@ -277,9 +288,75 @@ class HexMPC(BaseControl):
 
     def updateSetpoint(self, t_now):
         for k in range(self.N_HORIZON+1):
-            self.sp_template['_tvp',k,'xd'] = np.array([0.1,0,1,0,0,0,0,0,0,0,0,0])
+            self.sp_template['_tvp',k,'xd'] = np.array([1,0,1,0,0,0,0,0,0,0,0,0])
 
         return self.sp_template
+    
+    def HexModel(self, X):
+        phi = X[3]
+        theta = X[4]
+        psi = X[5]
+        u = X[6]
+        v = X[7]
+        w = X[8]
+        p = X[9]
+        q = X[10]
+        r = X[11]
+
+        s_phi = np.sin(phi)
+        c_phi = np.cos(phi)
+        s_theta = np.sin(theta)
+        c_theta = np.cos(theta)
+        s_psi = np.sin(psi)
+        c_psi = np.cos(psi)
+
+        if self.MODEL_TYPE == "NL":
+            return vertcat(
+                u*c_psi*c_theta + v*(c_psi*s_phi*s_theta - c_phi*s_psi) + w*(s_phi*s_psi + c_phi*c_psi*s_theta),
+                u*s_psi*c_theta + v*(s_psi*s_phi*s_theta + c_phi*c_psi) + w*(c_phi*s_psi*s_theta - c_psi*s_phi),
+                -u*s_theta + v*c_theta*s_phi + w*c_phi*c_theta,
+                p + (r*c_phi + q*s_phi)*np.tan(theta),
+                q*c_phi - r*s_phi,
+                r*c_phi/c_theta + q*s_phi/c_theta,
+                r*v - q*w + self.G*s_theta + u[0]/self.m,
+                p*w - r*u - self.G*s_phi*c_theta + self.u[1]/self.m,
+                q*u - p*v - self.G*c_phi*c_theta + self.u[2]/self.m,
+                ((self.iyy-self.izz)*r*q + self.u[3])/self.ixx,
+                ((self.izz-self.ixx)*p*r + self.u[4])/self.iyy,
+                ((self.ixx-self.iyy)*p*q + self.u[5])/self.izz
+            )
+        elif self.MODEL_TYPE == "NLS":
+            return vertcat(
+                u + v*(phi*theta - psi) + w*(phi*psi + theta),
+                u*psi + v*(psi*phi*theta + 1) + w*(psi*theta - phi),
+                -u*theta + v*phi + w,
+                p + (r + q*phi)*theta,
+                q - r*phi,
+                r + q*phi,
+                r*v - q*w + self.G*theta + self.u[0]/self.m,
+                p*w - r*u - self.G*phi + self.u[1]/self.m,
+                q*u - p*v - self.G + self.u[2]/self.m,
+                ((self.iyy-self.izz)*r*q + self.u[3])/self.ixx,
+                ((self.izz-self.ixx)*p*r + self.u[4])/self.iyy,
+                ((self.ixx-self.iyy)*p*q + self.u[5])/self.izz
+            )
+        elif self.MODEL_TYPE == "L":
+            return vertcat(
+                u,
+                v,
+                w,
+                p,
+                q,
+                r,
+                self.G*theta,# + self.u[0]/self.m,
+                -self.G*phi,# + self.u[1]/self.m,
+                -self.G + self.u[2]/self.m,
+                self.u[3]/self.ixx,
+                self.u[4]/self.iyy,
+                self.u[5]/self.izz
+            )
+
+        
 
     def MPC_init(self, init_xyz):
         self.model = do_mpc.model.Model('continuous')
@@ -297,26 +374,28 @@ class HexMPC(BaseControl):
         #     self.x[10]*np.sin(self.x[3])/np.cos(self.x[4]) + self.x[11]*np.cos(self.x[3])/np.cos(self.x[4]),
         #     self.x[11]*self.x[7] - self.x[10]*self.x[8] + self.G*sin(self.x[5]),
         #     self.x[9]*self.x[8] - self.x[11]*self.x[6] - self.G*cos(self.x[5])*sin(self.x[4]),
-        #     self.x[10]*self.x[6] - self.x[9]*self.x[7] - self.G*cos(self.x[5])*cos(self.x[4]) + self.u[0]/self.m,
-        #     ((self.iyy-self.izz)*self.x[10]*self.x[11] + self.u[1])/self.ixx,
-        #     ((self.izz-self.ixx)*self.x[9]*self.x[11] + self.u[2])/self.iyy,
-        #     ((self.ixx-self.iyy)*self.x[9]*self.x[10] + self.u[3])/self.izz
+        #     self.x[10]*self.x[6] - self.x[9]*self.x[7] - self.G*cos(self.x[5])*cos(self.x[4]) + self.u[2]/self.m,
+        #     ((self.iyy-self.izz)*self.x[10]*self.x[11] + self.u[3])/self.ixx,
+        #     ((self.izz-self.ixx)*self.x[9]*self.x[11] + self.u[4])/self.iyy,
+        #     ((self.ixx-self.iyy)*self.x[9]*self.x[10] + self.u[5])/self.izz
         # )
 
-        self.dx = vertcat(
-            self.x[6],
-            self.x[7],
-            self.x[8],
-            self.x[9],
-            self.x[10],
-            self.x[11],
-            self.G*self.x[4],
-            -self.G*self.x[3],
-            self.u[0]/self.m - self.G,
-            self.u[1]/self.ixx,
-            self.u[2]/self.iyy,
-            self.u[3]/self.izz
-        )
+        # self.dx = vertcat(
+        #     self.x[6],
+        #     self.x[7],
+        #     self.x[8],
+        #     self.x[9],
+        #     self.x[10],
+        #     self.x[11],
+        #     self.G*self.x[4],
+        #     -self.G*self.x[3],
+        #     self.u[2]/self.m - self.G,
+        #     self.u[3]/self.ixx,
+        #     self.u[4]/self.iyy,
+        #     self.u[5]/self.izz
+        # )
+
+        self.dx = self.HexModel(self.x)
 
         self.model.set_rhs('x', self.dx)
 
@@ -342,7 +421,7 @@ class HexMPC(BaseControl):
         self.mpc.set_objective(mterm=mterm, lterm=lterm)
 
         self.mpc.set_rterm(
-            u=np.array([1e-2,1e-2,1e-2,1e-2])
+            u=np.array([1e-2,1e-2,1e-2,1e-2,1e-2,1e-2])
         )
 
         # Lower bounds on states:
@@ -350,9 +429,9 @@ class HexMPC(BaseControl):
         # Upper bounds on states
         self.mpc.bounds['upper','_x', 'x'] = np.array([inf,inf,100,np.pi/3,np.pi/2,np.pi,5,5,5,np.pi/4,np.pi/4,np.pi/4])
         # Lower bounds on inputs:
-        self.mpc.bounds['lower','_u', 'u'] = np.array([0,-self.MAX_XY_TORQUE,-self.MAX_XY_TORQUE,-self.MAX_Z_TORQUE])
+        self.mpc.bounds['lower','_u', 'u'] = np.array([0,0,0,-self.MAX_X_TORQUE,-self.MAX_Y_TORQUE,-self.MAX_Z_TORQUE])
         # Lower bounds on inputs:
-        self.mpc.bounds['upper','_u', 'u'] = np.array([self.MAX_THRUST,self.MAX_XY_TORQUE,self.MAX_XY_TORQUE,self.MAX_Z_TORQUE])
+        self.mpc.bounds['upper','_u', 'u'] = np.array([0,0,self.MAX_THRUST,self.MAX_X_TORQUE,self.MAX_Y_TORQUE,self.MAX_Z_TORQUE])
         
         self.sp_template = self.mpc.get_tvp_template()
         
@@ -432,18 +511,21 @@ class HexMPC(BaseControl):
         self.control_counter += 1
         self.ref[:3] = target_pos
 
-        cur_rpy = list(p.getEulerFromQuaternion(cur_quat))
+        cur_rpy = list(pyb.getEulerFromQuaternion(cur_quat))
 
         x = np.hstack((cur_pos, cur_rpy, cur_vel, cur_ang_vel)).reshape(-1,1)
         u = self.mpc.make_step(x)
 
-        return nnlsRPM(thrust=u[0][0],
-                       x_torque=u[1][0],
-                       y_torque=u[2][0],
-                       z_torque=u[3][0],
+        return nnlsRPM(x_force=u[0][0],
+                       y_force=u[1][0],
+                       z_force=u[2][0],
+                       x_torque=u[3][0],
+                       y_torque=u[4][0],
+                       z_torque=u[5][0],
                        counter=self.control_counter,
                        max_thrust=self.MAX_THRUST,
-                       max_xy_torque=self.MAX_XY_TORQUE,
+                       max_x_torque=self.MAX_X_TORQUE,
+                       max_y_torque=self.MAX_Y_TORQUE,
                        max_z_torque=self.MAX_Z_TORQUE,
                        a=self.A,
                        inv_a=self.INV_A,
